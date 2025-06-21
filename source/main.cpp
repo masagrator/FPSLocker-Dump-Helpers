@@ -160,7 +160,6 @@ int main(int argc, char* argv[])
 		}
 	}
 	else {
-		pmdmntExit();
 		size_t availableHeap = checkAvailableHeap();
 		printf("Available Heap: %ld MB\n", (availableHeap / (1024 * 1024)));
 		consoleUpdate(NULL);
