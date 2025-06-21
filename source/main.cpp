@@ -75,6 +75,7 @@ void searchInRAM() {
 		if (insn -> instr_id != AD_INSTR_ADRP) {
 			printf("ADRP error!\n");
 			ArmadilloDone(&insn);
+			delete[] buffer_c;
 			return;
 		}
 		uint64_t main_offset = insn -> operands[1].op_imm.bits;
@@ -83,6 +84,7 @@ void searchInRAM() {
 		if (insn -> instr_id != AD_INSTR_ADD) {
 			printf("ADD error!\n");
 			ArmadilloDone(&insn);
+			delete[] buffer_c;
 			return;
 		}
 		main_offset += insn -> operands[2].op_imm.bits;
