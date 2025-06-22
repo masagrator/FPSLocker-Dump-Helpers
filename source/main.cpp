@@ -14,15 +14,6 @@ uint64_t Tid = 0x010054E01D878000;
 DmntCheatProcessMetadata cheatMetadata = {0};
 u64 mappings_count = 0;
 MemoryInfo* memoryInfoBuffers = 0;
-uint8_t utf_encoding = 0;
-struct ue4Results {
-	const char* iterator;
-	bool isFloat = false;
-	int default_value_int;
-	float default_value_float;
-	uint32_t offset;
-	uint32_t add;
-};
 
 bool isServiceRunning(const char *serviceName) {	
 	Handle handle;	
