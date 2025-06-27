@@ -187,10 +187,10 @@ int main(int argc, char* argv[])
 		if (res)
 			printf("dmntchtGetCheatProcessMetadata ret: 0x%x\n", res);
 		
-		if (cheatMetadata.title_id != Tid) {
-
-		}
 		if (!res) {
+			if (cheatMetadata.title_id != Tid) {
+				printf("Game has different Titleid than expected!\nTool may not work properly.\n");
+			}
 			res = dmntchtGetCheatProcessMappingCount(&mappings_count);
 			if (res)
 				printf("dmntchtGetCheatProcessMappingCount ret: 0x%x\n", res);
