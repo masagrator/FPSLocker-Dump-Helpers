@@ -116,8 +116,8 @@ void searchInRAM() {
 			return;
 		}
 		printGameInfo();
-		printf("Offset storing FPS lock: \n" CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, itr * 4);
-		printf("Store custom FPS Target at: \n" CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, cheatMetadata.main_nso_extents.size - 0x10);
+		printf("Offset reading DR FPS Target: \n" CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, itr * 4);
+		printf("Store custom DR FPS Target at: \n" CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, cheatMetadata.main_nso_extents.size - 0x10);
 	}
 	else printf("Instruction was not found in executable!\n");
 	delete[] buffer_c;
