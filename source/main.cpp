@@ -62,6 +62,25 @@ size_t searchDataX(uint32_t* data, size_t data_instruction_count, uint32_t* inst
 	return UINT64_MAX;
 }
 
+void printGameInfo() {
+	nsInitialize();
+	size_t appControlDataSize = 0;
+	s32 appContentMetaStatusSize = 0;
+	NsApplicationControlData appControlData;
+	NsApplicationContentMetaStatus appContentMetaStatus[2];
+	if (R_SUCCEEDED(nsGetApplicationControlData(NsApplicationControlSource::NsApplicationControlSource_Storage, Tid, &appControlData, sizeof(NsApplicationControlData), &appControlDataSize))) {
+		printf("Game version: " CONSOLE_YELLOW "%s" CONSOLE_RESET, appControlData.nacp.display_version);
+		if (R_SUCCEEDED(nsListApplicationContentMetaStatus(Tid, 0, appContentMetaStatus, 2, &appContentMetaStatusSize))) {
+			u32 index = 0;
+			if (appContentMetaStatus[1].meta_type == NcmContentMetaType_Patch) index = 1;
+			printf("/" CONSOLE_YELLOW "v%d" CONSOLE_RESET, appContentMetaStatus[index].version / 65536);
+		}
+		printf("\n");
+	}
+	nsExit();
+	printf("BID: " CONSOLE_YELLOW "%lX\n" CONSOLE_RESET, __builtin_bswap64(*(uint64_t*)&cheatMetadata.main_nso_build_id[0]));
+}
+
 void searchInRAM() {
 	char search[] = "\x08\x4E\xA8\x52\x00\x01\x27\x1E\x48\x8F\xA8\x52";
 	static_assert((sizeof(search)-1) % 4 == 0);
@@ -96,22 +115,7 @@ void searchInRAM() {
 			delete[] buffer_c;
 			return;
 		}
-		nsInitialize();
-		size_t appControlDataSize = 0;
-		s32 appContentMetaStatusSize = 0;
-		NsApplicationControlData appControlData;
-		NsApplicationContentMetaStatus appContentMetaStatus[2];
-		if (R_SUCCEEDED(nsGetApplicationControlData(NsApplicationControlSource::NsApplicationControlSource_Storage, Tid, &appControlData, sizeof(NsApplicationControlData), &appControlDataSize))) {
-			printf("Game version: " CONSOLE_YELLOW "%s" CONSOLE_RESET, appControlData.nacp.display_version);
-			if (R_SUCCEEDED(nsListApplicationContentMetaStatus(Tid, 0, appContentMetaStatus, 2, &appContentMetaStatusSize))) {
-				u32 index = 0;
-				if (appContentMetaStatus[1].meta_type == NcmContentMetaType_Patch) index = 1;
-				printf("/" CONSOLE_YELLOW "v%d" CONSOLE_RESET, appContentMetaStatus[index].version / 65536);
-			}
-			printf("\n");
-		}
-		nsExit();
-		printf("BID: " CONSOLE_YELLOW "%lX\n" CONSOLE_RESET, __builtin_bswap64(*(uint64_t*)&cheatMetadata.main_nso_build_id[0]));
+		printGameInfo();
 		printf("Offset storing FPS lock: \n" CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, itr * 4);
 		printf("Store custom FPS Target at: \n" CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, cheatMetadata.main_nso_extents.size - 0x10);
 	}
