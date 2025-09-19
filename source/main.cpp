@@ -10,7 +10,7 @@ extern "C" {
 #include "strext.h"
 }
 
-uint64_t Tid = 0x010054E01D878000;
+const uint64_t Tid = 0x01004FF021942000;
 DmntCheatProcessMetadata cheatMetadata = {0};
 u64 mappings_count = 0;
 MemoryInfo* memoryInfoBuffers = 0;
@@ -239,3 +239,4 @@ int main(int argc, char* argv[])
 	consoleExit(NULL);
 	return 0;
 }
+
