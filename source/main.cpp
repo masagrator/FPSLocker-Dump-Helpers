@@ -59,7 +59,7 @@ void searchInRAM() {
 	dmntchtReadCheatProcessMemory(cheatMetadata.main_nso_extents.base, (void*)buffer_c, cheatMetadata.main_nso_extents.size);
 	size_t itr = searchDataX(buffer_c, cheatMetadata.main_nso_extents.size / 4, (uint32_t*)&search[0], 1);
 	if (itr != UINT64_MAX) {
-		itr -= 5;
+		itr -= 1;
 		ad_insn *insn = NULL;
 		uint64_t distance = (itr * 4) + cheatMetadata.main_nso_extents.base;
 		ArmadilloDisassemble(buffer_c[itr], distance, &insn);
@@ -71,9 +71,9 @@ void searchInRAM() {
 		}
 		uint64_t main_offset = insn -> operands[1].op_imm.bits;
 		ArmadilloDone(&insn);
-		ArmadilloDisassemble(buffer_c[itr+1], distance+4, &insn);
-		if (insn -> instr_id != AD_INSTR_ADD) {
-			printf("ADD error!\n");
+		ArmadilloDisassemble(buffer_c[itr+3], distance+12, &insn);
+		if (insn -> instr_id != AD_INSTR_LDR) {
+			printf("LDR error!\n");
 			ArmadilloDone(&insn);
 			delete[] buffer_c;
 			return;
