@@ -37,7 +37,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   of a homebrew executable (.nro). This is intended to be used for sysmodules.
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
-APP_TITLE   :=  FC25_FPSLockFinder
+APP_TITLE   :=  FC26_FPSLockFinder
 APP_VERSION :=  1.0.0
 APP_AUTHOR  :=  MasaGratoR
 TARGET		:=	$(APP_TITLE)
