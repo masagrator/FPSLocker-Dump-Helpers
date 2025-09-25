@@ -10,7 +10,7 @@ extern "C" {
 #include "strext.h"
 }
 
-const uint64_t Tid = 0x01004FF021942000;
+uint64_t Tid = 0x010054E01D878000;
 DmntCheatProcessMetadata cheatMetadata = {0};
 u64 mappings_count = 0;
 MemoryInfo* memoryInfoBuffers = 0;
@@ -54,7 +54,7 @@ size_t searchDataX(uint32_t* data, size_t data_instruction_count, uint32_t* inst
 }
 
 void searchInRAM() {
-	char search[5] = "\xC1\xF7\x01\x6F";
+	const char search[] = "\xC1\xF7\x01\x6F";
 	uint32_t* buffer_c = new uint32_t[cheatMetadata.main_nso_extents.size / 4];
 	dmntchtReadCheatProcessMemory(cheatMetadata.main_nso_extents.base, (void*)buffer_c, cheatMetadata.main_nso_extents.size);
 	size_t itr = searchDataX(buffer_c, cheatMetadata.main_nso_extents.size / 4, (uint32_t*)&search[0], 1);
@@ -239,4 +239,3 @@ int main(int argc, char* argv[])
 	consoleExit(NULL);
 	return 0;
 }
-
