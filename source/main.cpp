@@ -95,7 +95,7 @@ void searchInRAM() {
 			printf("\n");
 		}
 		nsExit();
-		printf("BID: " CONSOLE_YELLOW "%lX\n" CONSOLE_RESET, __builtin_bswap64(*(uint64_t*)&cheatMetadata.main_nso_build_id[0]));
+		printf("BID: " CONSOLE_YELLOW "%016lX\n" CONSOLE_RESET, __builtin_bswap64(*(uint64_t*)&cheatMetadata.main_nso_build_id[0]));
 		printf("Offset storing FPS lock: " CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, main_offset - cheatMetadata.main_nso_extents.base);
 	}
 	else printf("Instruction was not found in executable!\n");
@@ -239,3 +239,4 @@ int main(int argc, char* argv[])
 	consoleExit(NULL);
 	return 0;
 }
+
