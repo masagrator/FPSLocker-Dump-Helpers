@@ -10,7 +10,7 @@ extern "C" {
 #include "strext.h"
 }
 
-const uint64_t Tid = 0x01004FF021942000;
+const uint64_t Tid = 0x0100C49025D3E000;
 DmntCheatProcessMetadata cheatMetadata = {0};
 u64 mappings_count = 0;
 MemoryInfo* memoryInfoBuffers = 0;
@@ -95,7 +95,7 @@ void searchInRAM() {
 			printf("\n");
 		}
 		nsExit();
-		printf("BID: " CONSOLE_YELLOW "%016lX\n" CONSOLE_RESET, __builtin_bswap64(*(uint64_t*)&cheatMetadata.main_nso_build_id[0]));
+		printf("BID: " CONSOLE_YELLOW "%lX\n" CONSOLE_RESET, __builtin_bswap64(*(uint64_t*)&cheatMetadata.main_nso_build_id[0]));
 		printf("Offset storing FPS lock: " CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, main_offset - cheatMetadata.main_nso_extents.base);
 	}
 	else printf("Instruction was not found in executable!\n");
@@ -239,4 +239,3 @@ int main(int argc, char* argv[])
 	consoleExit(NULL);
 	return 0;
 }
-
