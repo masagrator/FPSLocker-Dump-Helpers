@@ -42,8 +42,7 @@ size_t searchDataX(uint32_t* data, size_t data_instruction_count, uint32_t* inst
 	for (size_t i = 0; i < data_instruction_count; i++) {
 		bool error = false;
 		for (size_t x = 0; x < instruction_count; x++) {
-			if (i+x >= data_instruction_count) break;
-			if (data[i+x] != instruction[x]) {
+			if (i+x >= data_instruction_count || data[i+x] != instruction[x]) {
 				error = true;
 				break;
 			}
@@ -53,52 +52,113 @@ size_t searchDataX(uint32_t* data, size_t data_instruction_count, uint32_t* inst
 	return UINT64_MAX;
 }
 
-void searchInRAM() {
-	const char search[] = "\xC1\xF7\x01\x6F";
-	uint32_t* buffer_c = new uint32_t[cheatMetadata.main_nso_extents.size / 4];
-	dmntchtReadCheatProcessMemory(cheatMetadata.main_nso_extents.base, (void*)buffer_c, cheatMetadata.main_nso_extents.size);
-	size_t itr = searchDataX(buffer_c, cheatMetadata.main_nso_extents.size / 4, (uint32_t*)&search[0], 1);
-	if (itr != UINT64_MAX) {
-		itr -= 1;
-		ad_insn *insn = NULL;
-		uint64_t distance = (itr * 4) + cheatMetadata.main_nso_extents.base;
-		ArmadilloDisassemble(buffer_c[itr], distance, &insn);
-		if (insn -> instr_id != AD_INSTR_ADRP) {
-			printf("ADRP error!\n");
-			ArmadilloDone(&insn);
-			delete[] buffer_c;
-			return;
-		}
-		uint64_t main_offset = insn -> operands[1].op_imm.bits;
-		ArmadilloDone(&insn);
-		ArmadilloDisassemble(buffer_c[itr+3], distance+12, &insn);
-		if (insn -> instr_id != AD_INSTR_LDR) {
-			printf("LDR error!\n");
-			ArmadilloDone(&insn);
-			delete[] buffer_c;
-			return;
-		}
-		main_offset += insn -> operands[2].op_imm.bits;
-		ArmadilloDone(&insn);
-		nsInitialize();
-		size_t appControlDataSize = 0;
-		s32 appContentMetaStatusSize = 0;
-		NsApplicationControlData appControlData;
-		NsApplicationContentMetaStatus appContentMetaStatus[2];
-		if (R_SUCCEEDED(nsGetApplicationControlData(NsApplicationControlSource::NsApplicationControlSource_Storage, Tid, &appControlData, sizeof(NsApplicationControlData), &appControlDataSize))) {
-			printf("Game version: " CONSOLE_YELLOW "%s" CONSOLE_RESET, appControlData.nacp.display_version);
-			if (R_SUCCEEDED(nsListApplicationContentMetaStatus(Tid, 0, appContentMetaStatus, 2, &appContentMetaStatusSize))) {
-				u32 index = 0;
-				if (appContentMetaStatus[1].meta_type == NcmContentMetaType_Patch) index = 1;
-				printf("/" CONSOLE_YELLOW "v%d" CONSOLE_RESET, appContentMetaStatus[index].version / 65536);
+size_t searchDataMasked(uint32_t* data, size_t data_instruction_count, const uint32_t* instruction, const uint32_t* mask, size_t instruction_count) {
+	for (size_t i = 0; i + instruction_count <= data_instruction_count; i++) {
+		bool error = false;
+		for (size_t x = 0; x < instruction_count; x++) {
+			if ((data[i+x] & mask[x]) != instruction[x]) {
+				error = true;
+				break;
 			}
-			printf("\n");
 		}
-		nsExit();
-		printf("BID: " CONSOLE_YELLOW "%016lX\n" CONSOLE_RESET, __builtin_bswap64(*(uint64_t*)&cheatMetadata.main_nso_build_id[0]));
-		printf("Offset storing FPS lock: " CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, main_offset - cheatMetadata.main_nso_extents.base);
+		if (error == false) return i;
 	}
-	else printf("Instruction was not found in executable!\n");
+	return UINT64_MAX;
+}
+
+// Decodes ADRP + LDR pair and returns absolute address (0 on error)
+uint64_t decodeAdrpLdr(uint32_t* buffer, size_t adrp_itr, size_t ldr_itr, const char* name) {
+	ad_insn *insn = NULL;
+	uint64_t base = cheatMetadata.main_nso_extents.base;
+	ArmadilloDisassemble(buffer[adrp_itr], (adrp_itr * 4) + base, &insn);
+	if (insn -> instr_id != AD_INSTR_ADRP) {
+		printf("%s: ADRP error!\n", name);
+		ArmadilloDone(&insn);
+		return 0;
+	}
+	uint64_t address = insn -> operands[1].op_imm.bits;
+	ArmadilloDone(&insn);
+	ArmadilloDisassemble(buffer[ldr_itr], (ldr_itr * 4) + base, &insn);
+	if (insn -> instr_id != AD_INSTR_LDR) {
+		printf("%s: LDR error!\n", name);
+		ArmadilloDone(&insn);
+		return 0;
+	}
+	address += insn -> operands[2].op_imm.bits;
+	ArmadilloDone(&insn);
+	return address;
+}
+
+void searchInRAM() {
+	// FPS lock: fmov v1.2d, #30.0 ; ADRP at REF-0x4, LDR at REF+0x8
+	const uint32_t search_fps[] = {0x6F01F7C1};
+	// Dynamic Resolution renderer global; ADRP at REF-0x8, LDR at REF-0x4
+	// 08 0d 40 f9 e8 07 00 f9 09 05 40 f9 89 01 00 b4 08 09 40 f9 29 05 40 f9 bf 39 03 d5
+	const uint32_t search_dr[] = {0xF9400D08, 0xF90007E8, 0xF9400509, 0xB4000189, 0xF9400908, 0xF9400529, 0xD50339BF};
+	// DRS regulator offset in renderer: ldr x23, [x20, #imm] (imm12 * 8) ; ldr x8, [x23, #0x40]
+	const uint32_t search_dr_reg[] = {0xF9400297, 0xF94022E8};
+	const uint32_t search_dr_reg_mask[] = {0xFFC003FF, 0xFFFFFFFF};
+	// DRS regulator init (ldr s8, [x0, #0xF8] ; ldr x0, [x21, #0x20]) - main_offset for MASTER_WRITE = REF
+	// 08 f8 40 bd a0 12 40 f9
+	const uint32_t search_dr_init[] = {0xBD40F808, 0xF94012A0};
+	// Same place when FPSLocker patch is already applied (ldr s8, [x0, #0xF8] ; ldr s9, [x0, #0x144])
+	const uint32_t search_dr_init_patched[] = {0xBD40F808, 0xBD414409};
+
+	size_t count = cheatMetadata.main_nso_extents.size / 4;
+	uint32_t* buffer_c = new uint32_t[count];
+	dmntchtReadCheatProcessMemory(cheatMetadata.main_nso_extents.base, (void*)buffer_c, cheatMetadata.main_nso_extents.size);
+
+	nsInitialize();
+	size_t appControlDataSize = 0;
+	s32 appContentMetaStatusSize = 0;
+	NsApplicationControlData appControlData;
+	NsApplicationContentMetaStatus appContentMetaStatus[2];
+	if (R_SUCCEEDED(nsGetApplicationControlData(NsApplicationControlSource::NsApplicationControlSource_Storage, Tid, &appControlData, sizeof(NsApplicationControlData), &appControlDataSize))) {
+		printf("Game version: " CONSOLE_YELLOW "%s" CONSOLE_RESET, appControlData.nacp.display_version);
+		if (R_SUCCEEDED(nsListApplicationContentMetaStatus(Tid, 0, appContentMetaStatus, 2, &appContentMetaStatusSize))) {
+			u32 index = 0;
+			if (appContentMetaStatus[1].meta_type == NcmContentMetaType_Patch) index = 1;
+			printf("/" CONSOLE_YELLOW "v%d" CONSOLE_RESET, appContentMetaStatus[index].version / 65536);
+		}
+		printf("\n");
+	}
+	nsExit();
+	printf("BID: " CONSOLE_YELLOW "%016lX\n" CONSOLE_RESET, __builtin_bswap64(*(uint64_t*)&cheatMetadata.main_nso_build_id[0]));
+
+	size_t itr = searchDataX(buffer_c, count, (uint32_t*)search_fps, sizeof(search_fps) / 4);
+	if (itr != UINT64_MAX && itr >= 1) {
+		uint64_t address = decodeAdrpLdr(buffer_c, itr - 1, itr + 2, "FPS lock");
+		if (address)
+			printf("Offset storing FPS lock: " CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, address - cheatMetadata.main_nso_extents.base);
+	}
+	else printf("FPS lock instruction was not found in executable!\n");
+
+	itr = searchDataX(buffer_c, count, (uint32_t*)search_dr, sizeof(search_dr) / 4);
+	if (itr != UINT64_MAX && itr >= 2) {
+		uint64_t address = decodeAdrpLdr(buffer_c, itr - 2, itr - 1, "DR");
+		if (address) {
+			uint32_t reg_offset = 0x14C8;
+			size_t itr2 = searchDataMasked(buffer_c, count, search_dr_reg, search_dr_reg_mask, sizeof(search_dr_reg) / 4);
+			if (itr2 != UINT64_MAX)
+				reg_offset = ((buffer_c[itr2] >> 10) & 0xFFF) * 8;
+			else printf("DR regulator offset not found, using default 0x14C8\n");
+			printf("Offset storing DR renderer: " CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, address - cheatMetadata.main_nso_extents.base);
+			printf("DR min target: " CONSOLE_YELLOW "[MAIN, 0x%lX, 0x%X, 0xC]\n" CONSOLE_RESET, address - cheatMetadata.main_nso_extents.base, reg_offset);
+			printf("DR max target: " CONSOLE_YELLOW "[MAIN, 0x%lX, 0x%X, 0x10]\n" CONSOLE_RESET, address - cheatMetadata.main_nso_extents.base, reg_offset);
+		}
+	}
+	else printf("DR instructions were not found in executable!\n");
+
+	itr = searchDataX(buffer_c, count, (uint32_t*)search_dr_init, sizeof(search_dr_init) / 4);
+	if (itr != UINT64_MAX)
+		printf("DR init patch main_offset: " CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, itr * 4);
+	else {
+		itr = searchDataX(buffer_c, count, (uint32_t*)search_dr_init_patched, sizeof(search_dr_init_patched) / 4);
+		if (itr != UINT64_MAX)
+			printf("DR init patch main_offset: " CONSOLE_YELLOW "0x%lX" CONSOLE_RESET " (already patched)\n", itr * 4);
+		else printf("DR init instructions were not found in executable!\n");
+	}
+
 	delete[] buffer_c;
 }
 
