@@ -98,9 +98,12 @@ void searchInRAM() {
 	// DRS regulator offset in renderer: ldr x23, [x20, #imm] (imm12 * 8) ; ldr x8, [x23, #0x40]
 	const uint32_t search_dr_reg[] = {0xF9400297, 0xF94022E8};
 	const uint32_t search_dr_reg_mask[] = {0xFFC003FF, 0xFFFFFFFF};
-	// DRS regulator init (ldr s8, [x0, #0xF8] ; ldr x0, [x21, #0x20]) - main_offset for MASTER_WRITE = REF
-	// 08 f8 40 bd a0 12 40 f9
-	const uint32_t search_dr_init[] = {0xBD40F808, 0xF94012A0};
+	// DRS regulator init (ldr s8, [x0, #0xF8] ; ldr x0, [x21, #imm]) - main_offset for MASTER_WRITE = REF
+	// imm is masked out because it changes between versions:
+	// older builds: ldr x0, [x21, #0x20]  (0xF94012A0)
+	// newer builds: ldr x0, [x21, #0x780] (0xF943C2A0)
+	const uint32_t search_dr_init[] = {0xBD40F808, 0xF94002A0};
+	const uint32_t search_dr_init_mask[] = {0xFFFFFFFF, 0xFFC003FF};
 	// Same place when FPSLocker patch is already applied (ldr s8, [x0, #0xF8] ; ldr s9, [x0, #0x144])
 	const uint32_t search_dr_init_patched[] = {0xBD40F808, 0xBD414409};
 	MemoryInfo meminfo{};
@@ -150,7 +153,7 @@ void searchInRAM() {
 	}
 	else printf("DR instructions were not found in executable!\n");
 
-	itr = searchDataX(buffer_rx, count, (uint32_t*)search_dr_init, sizeof(search_dr_init) / 4);
+	itr = searchDataMasked(buffer_rx, count, search_dr_init, search_dr_init_mask, sizeof(search_dr_init) / 4);
 	if (itr != UINT64_MAX)
 		printf("DR init patch main_offset: " CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, itr * 4);
 	else {
