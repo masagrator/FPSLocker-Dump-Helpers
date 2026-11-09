@@ -103,10 +103,11 @@ void searchInRAM() {
 	const uint32_t search_dr_init[] = {0xBD40F808, 0xF94012A0};
 	// Same place when FPSLocker patch is already applied (ldr s8, [x0, #0xF8] ; ldr s9, [x0, #0x144])
 	const uint32_t search_dr_init_patched[] = {0xBD40F808, 0xBD414409};
-
-	size_t count = cheatMetadata.main_nso_extents.size / 4;
-	uint32_t* buffer_c = new uint32_t[count];
-	dmntchtReadCheatProcessMemory(cheatMetadata.main_nso_extents.base, (void*)buffer_c, cheatMetadata.main_nso_extents.size);
+	MemoryInfo meminfo{};
+	dmntchtQueryCheatProcessMemory(&meminfo, cheatMetadata.main_nso_extents.base);
+	size_t count = meminfo.size / 4;
+	uint32_t* buffer_rx = new uint32_t[count];
+	dmntchtReadCheatProcessMemory(cheatMetadata.main_nso_extents.base, (void*)buffer_rx, meminfo.size);
 
 	nsInitialize();
 	size_t appControlDataSize = 0;
@@ -125,22 +126,22 @@ void searchInRAM() {
 	nsExit();
 	printf("BID: " CONSOLE_YELLOW "%016lX\n" CONSOLE_RESET, __builtin_bswap64(*(uint64_t*)&cheatMetadata.main_nso_build_id[0]));
 
-	size_t itr = searchDataX(buffer_c, count, (uint32_t*)search_fps, sizeof(search_fps) / 4);
+	size_t itr = searchDataX(buffer_rx, count, (uint32_t*)search_fps, sizeof(search_fps) / 4);
 	if (itr != UINT64_MAX && itr >= 1) {
-		uint64_t address = decodeAdrpLdr(buffer_c, itr - 1, itr + 2, "FPS lock");
+		uint64_t address = decodeAdrpLdr(buffer_rx, itr - 1, itr + 2, "FPS lock");
 		if (address)
 			printf("Offset storing FPS lock: " CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, address - cheatMetadata.main_nso_extents.base);
 	}
 	else printf("FPS lock instruction was not found in executable!\n");
 
-	itr = searchDataX(buffer_c, count, (uint32_t*)search_dr, sizeof(search_dr) / 4);
+	itr = searchDataX(buffer_rx, count, (uint32_t*)search_dr, sizeof(search_dr) / 4);
 	if (itr != UINT64_MAX && itr >= 2) {
-		uint64_t address = decodeAdrpLdr(buffer_c, itr - 2, itr - 1, "DR");
+		uint64_t address = decodeAdrpLdr(buffer_rx, itr - 2, itr - 1, "DR");
 		if (address) {
 			uint32_t reg_offset = 0x14C8;
-			size_t itr2 = searchDataMasked(buffer_c, count, search_dr_reg, search_dr_reg_mask, sizeof(search_dr_reg) / 4);
+			size_t itr2 = searchDataMasked(buffer_rx, count, search_dr_reg, search_dr_reg_mask, sizeof(search_dr_reg) / 4);
 			if (itr2 != UINT64_MAX)
-				reg_offset = ((buffer_c[itr2] >> 10) & 0xFFF) * 8;
+				reg_offset = ((buffer_rx[itr2] >> 10) & 0xFFF) * 8;
 			else printf("DR regulator offset not found, using default 0x14C8\n");
 			printf("Offset storing DR renderer: " CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, address - cheatMetadata.main_nso_extents.base);
 			printf("DR min target: " CONSOLE_YELLOW "[MAIN, 0x%lX, 0x%X, 0xC]\n" CONSOLE_RESET, address - cheatMetadata.main_nso_extents.base, reg_offset);
@@ -149,17 +150,17 @@ void searchInRAM() {
 	}
 	else printf("DR instructions were not found in executable!\n");
 
-	itr = searchDataX(buffer_c, count, (uint32_t*)search_dr_init, sizeof(search_dr_init) / 4);
+	itr = searchDataX(buffer_rx, count, (uint32_t*)search_dr_init, sizeof(search_dr_init) / 4);
 	if (itr != UINT64_MAX)
 		printf("DR init patch main_offset: " CONSOLE_YELLOW "0x%lX\n" CONSOLE_RESET, itr * 4);
 	else {
-		itr = searchDataX(buffer_c, count, (uint32_t*)search_dr_init_patched, sizeof(search_dr_init_patched) / 4);
+		itr = searchDataX(buffer_rx, count, (uint32_t*)search_dr_init_patched, sizeof(search_dr_init_patched) / 4);
 		if (itr != UINT64_MAX)
 			printf("DR init patch main_offset: " CONSOLE_YELLOW "0x%lX" CONSOLE_RESET " (already patched)\n", itr * 4);
 		else printf("DR init instructions were not found in executable!\n");
 	}
 
-	delete[] buffer_c;
+	delete[] buffer_rx;
 }
 
 // Main program entrypoint
